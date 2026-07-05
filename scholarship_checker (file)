@@ -1,0 +1,220 @@
+import sys
+import csv
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QLabel, QLineEdit, 
+    QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox, QFrame
+)
+from PyQt5.QtCore import Qt
+
+class ScholarshipChecker(QWidget):
+    def __init__(self):
+        super().__init__()
+        # Analytics Counters
+        self.total_checked = 0
+        self.total_eligible = 0
+        self.session_records = [] # for Excel export
+        
+        self.initUI()
+        
+    def initUI(self):
+        self.setWindowTitle("CampusScholar - Advanced Eligibility Portal")
+        self.resize(500, 580)
+        self.setStyleSheet("""
+            QWidget { background-color: #f4f6f9; font-family: 'Segoe UI', Arial; }
+            QLabel { color: #2c3e50; font-size: 13px; }
+            QLineEdit { background-color: lightgray; border: 1px solid #bdc3c7; border-radius: 6px; padding: 8px; color: #34495e; }
+            QLineEdit:focus { border: 1px solid #1b4d3e; }
+            QPushButton { border-radius: 6px; font-weight: bold; font-size: 13px; padding: 10px; }
+        """)
+        
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(25, 25, 25, 25)
+        main_layout.setSpacing(12)
+        
+        # Header
+        heading = QLabel("CampusScholar Portal")
+        heading.setAlignment(Qt.AlignCenter)
+        heading.setStyleSheet("font-size: 22px; font-weight: bold; color: #1b4d3e;")
+        main_layout.addWidget(heading)
+        
+        sub_heading = QLabel("Rule-Based Expert System with Analytics & Reporting")
+        sub_heading.setAlignment(Qt.AlignCenter)
+        sub_heading.setStyleSheet("color: #7f8c8d; font-size: 11px; margin-bottom: 10px;")
+        main_layout.addWidget(sub_heading)
+        
+        # --- UNIQUE FEATURE 1: LIVE ANALYTICS PANEL ---
+        self.stats_frame = QFrame()
+        self.stats_frame.setStyleSheet("QFrame { background-color: #eef2f7; border: 1px solid #dcdde1; border-radius: 6px; }")
+        stats_layout = QHBoxLayout(self.stats_frame)
+        
+        self.lbl_total = QLabel("Total Checked: 0")
+        self.lbl_total.setStyleSheet("font-weight: bold; color: #34495e;")
+        self.lbl_eligible = QLabel("Total Eligible: 0")
+        self.lbl_eligible.setStyleSheet("font-weight: bold; color: #27ae60;")
+        
+        stats_layout.addWidget(self.lbl_total)
+        stats_layout.addWidget(self.lbl_eligible)
+        main_layout.addWidget(self.stats_frame)
+        
+        # Input Form
+        # Registration Number (For professional tracking)
+        reg_layout = QHBoxLayout()
+        lbl_reg = QLabel("Registration No:")
+        lbl_reg.setMinimumWidth(160)
+        self.txt_reg = QLineEdit()
+        self.txt_reg.setPlaceholderText("e.g., FALL-2025-AI-001")
+        reg_layout.addWidget(lbl_reg)
+        reg_layout.addWidget(self.txt_reg)
+        main_layout.addLayout(reg_layout)
+
+        # GPA Input
+        gpa_layout = QHBoxLayout()
+        lbl_gpa = QLabel("Current CGPA (0.0 - 4.0):")
+        lbl_gpa.setMinimumWidth(160)
+        self.txt_gpa = QLineEdit()
+        self.txt_gpa.setPlaceholderText("e.g., 3.65")
+        gpa_layout.addWidget(lbl_gpa)
+        gpa_layout.addWidget(self.txt_gpa)
+        main_layout.addLayout(gpa_layout)
+        
+        # Income Input
+        income_layout = QHBoxLayout()
+        lbl_income = QLabel("Monthly Income (PKR):")
+        lbl_income.setMinimumWidth(160)
+        self.txt_income = QLineEdit()
+        self.txt_income.setPlaceholderText("e.g., 50000")
+        income_layout.addWidget(lbl_income)
+        income_layout.addWidget(self.txt_income)
+        main_layout.addLayout(income_layout)
+        
+        # Attendance Input
+        attendance_layout = QHBoxLayout()
+        lbl_attendance = QLabel("Attendance Percentage (%):")
+        lbl_attendance.setMinimumWidth(160)
+        self.txt_attendance = QLineEdit()
+        self.txt_attendance.setPlaceholderText("e.g., 85")
+        attendance_layout.addWidget(lbl_attendance)
+        attendance_layout.addWidget(self.txt_attendance)
+        main_layout.addLayout(attendance_layout)
+        
+        # Action Buttons
+        btn_layout = QHBoxLayout()
+        self.btn_check = QPushButton("Evaluate & Log")
+        self.btn_check.setStyleSheet("background-color: #1b4d3e; color: white;")
+        self.btn_check.clicked.connect(self.evaluate_eligibility)
+        
+        self.btn_clear = QPushButton("Clear")
+        self.btn_clear.setStyleSheet("background-color: #7f8c8d; color: white;")
+        self.btn_clear.clicked.connect(self.clear_fields)
+        
+        btn_layout.addWidget(self.btn_check, 3)
+        btn_layout.addWidget(self.btn_clear, 1)
+        main_layout.addLayout(btn_layout)
+        
+        # Dynamic Result Display Area
+        self.result_frame = QFrame()
+        self.result_frame.setStyleSheet("QFrame { background-color: #ffffff; border: 1px dashed #bdc3c7; border-radius: 8px; }")
+        frame_layout = QVBoxLayout()
+        self.lbl_result = QLabel("Results will be displayed here after evaluation.")
+        self.lbl_result.setAlignment(Qt.AlignCenter)
+        self.lbl_result.setWordWrap(True)
+        self.lbl_result.setStyleSheet("color: #7f8c8d; font-style: italic; border: none;")
+        frame_layout.addWidget(self.lbl_result)
+        self.result_frame.setLayout(frame_layout)
+        main_layout.addWidget(self.result_frame)
+        
+        # --- UNIQUE FEATURE 2: EXPORT REPORT BUTTON ---
+        self.btn_export = QPushButton("📊 Export Session Report to CSV")
+        self.btn_export.setStyleSheet("background-color: #2980b9; color: white; margin-top: 5px;")
+        self.btn_export.clicked.connect(self.export_to_csv)
+        main_layout.addWidget(self.btn_export)
+        
+        self.setLayout(main_layout)
+
+    def evaluate_eligibility(self):
+        reg_no = self.txt_reg.text().strip()
+        if not reg_no:
+            QMessageBox.warning(self, "Input Warning", "Please enter Student Registration Number first.")
+            return
+
+        try:
+            gpa = float(self.txt_gpa.text().strip())
+            income = float(self.txt_income.text().strip())
+            attendance = float(self.txt_attendance.text().strip())
+            
+            if not (0.0 <= gpa <= 4.0) or income < 0 or not (0 <= attendance <= 100):
+                raise ValueError
+        except ValueError:
+            QMessageBox.critical(self, "Input Error", "Please enter valid numerical values within limits.")
+            return
+
+        # Rule Engine Logic
+        is_merit_eligible = False
+        is_need_eligible = False
+        status_text = "Not Eligible"
+        
+        if attendance >= 75:
+            if gpa >= 3.5:
+                is_merit_eligible = True
+            if income <= 60000:
+                is_need_eligible = True
+
+        # Update Analytics and UI Themes
+        self.total_checked += 1
+        
+        if is_merit_eligible and is_need_eligible:
+            status_text = "Eligible (Merit & Need)"
+            self.total_eligible += 1
+            self.lbl_result.setText(f"⭐ STATUS: EXCELLENT!\n{reg_no} qualifies for both Merit & Need-Based Scholarships.")
+            self.result_frame.setStyleSheet("QFrame { background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; } QLabel { color: #155724; font-weight: bold; }")
+        elif is_merit_eligible:
+            status_text = "Eligible (Merit Only)"
+            self.total_eligible += 1
+            self.lbl_result.setText(f"🎓 STATUS: ELIGIBLE!\n{reg_no} qualifies for the Merit-Based Scholarship.")
+            self.result_frame.setStyleSheet("QFrame { background-color: #d1ecf1; border: 1px solid #bee5eb; border-radius: 8px; } QLabel { color: #0c5460; font-weight: bold; }")
+        elif is_need_eligible and gpa >= 2.5:
+            status_text = "Eligible (Need Only)"
+            self.total_eligible += 1
+            self.lbl_result.setText(f"💸 STATUS: ELIGIBLE!\n{reg_no} qualifies for the Need-Based Financial Aid.")
+            self.result_frame.setStyleSheet("QFrame { background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px; } QLabel { color: #856404; font-weight: bold; }")
+        else:
+            self.lbl_result.setText(f"❌ STATUS: NOT ELIGIBLE\n{reg_no} does not meet the institutional criteria rules.")
+            self.result_frame.setStyleSheet("QFrame { background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; } QLabel { color: #721c24; font-weight: bold; }")
+
+        # Live counters update
+        self.lbl_total.setText(f"Total Checked: {self.total_checked}")
+        self.lbl_eligible.setText(f"Total Eligible: {self.total_eligible}")
+        
+        # Append record internally for CSV generation
+        self.session_records.append([reg_no, gpa, income, attendance, status_text])
+
+    def export_to_csv(self):
+        if not self.session_records:
+            QMessageBox.information(self, "Export Info", "No data to export yet. Please evaluate at least one student.")
+            return
+            
+        filename = "scholarship_report.csv"
+        try:
+            with open(filename, mode='w', newline='', encoding='utf-8') as file:
+                writer = csv.writer(file)
+                # Header row for Excel
+                writer.writerow(["Registration No", "GPA", "Monthly Income", "Attendance %", "Final Decision Status"])
+                # Data rows
+                writer.writerows(self.session_records)
+            QMessageBox.information(self, "Export Success", f"Report successfully saved as '{filename}' in your project folder!")
+        except Exception as e:
+            QMessageBox.critical(self, "Export Error", f"Could not save file: {str(e)}")
+
+    def clear_fields(self):
+        self.txt_reg.clear()
+        self.txt_gpa.clear()
+        self.txt_income.clear()
+        self.txt_attendance.clear()
+        self.lbl_result.setText("Results will be displayed here after evaluation.")
+        self.result_frame.setStyleSheet("QFrame { background-color: #ffffff; border: 1px dashed #bdc3c7; border-radius: 8px; } QLabel { color: #7f8c8d; font-style: italic; border: none; }")
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    ex = ScholarshipChecker()
+    ex.show()
+    sys.exit(app.exec_())

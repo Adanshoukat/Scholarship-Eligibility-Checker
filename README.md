@@ -25,6 +25,8 @@ A professional desktop graphical user interface (GUI) software built with Python
 
 . academic-portfolio
 
+AI (Gemini) was utilized as an interactive programming mentor during this project. It assisted in designing the clean UI layout with PyQt5, structuring the rule-based logic for evaluation, and debugging the automated CSV data logging system to ensure professional, institution-standard code.
+
 ## Installation & System Setup
 
 ### Prerequisites
